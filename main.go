@@ -98,18 +98,20 @@ L:
 }
 
 func snapIFrame(s *Stream) ([]byte, error) {
-
 	if v := s.WaitVideoTrack(); v != nil {
-		pack := v.IDRing.Value.(*AVItem).Value.(*VideoPack)
-		header := *v.ExtraData
 		buf := bytes.NewBuffer(nil)
+
+		header := *v.ExtraData
 		for _, h := range header.NALUs {
 			buf.Write(codec.NALU_Delimiter2)
 			buf.Write(h)
 		}
 
-		buf.Write(codec.NALU_Delimiter2)
-		buf.Write(pack.NALUs[0])
+		idr := v.IDRing.Value.(*AVItem).Value.(*VideoPack)
+		for _, h := range idr.NALUs {
+			buf.Write(codec.NALU_Delimiter2)
+			buf.Write(h)
+		}
 
 		cmd := exec.Command("ffmpeg", "-i", "pipe:0", "-vframes", "1", "-f", "mjpeg", "pipe:1")
 		cmd.Stdin = bytes.NewReader(buf.Bytes())
@@ -118,6 +120,9 @@ func snapIFrame(s *Stream) ([]byte, error) {
 		err := cmd.Run()
 		if err != nil {
 			return nil, err
+		}
+		if len(out.Bytes()) == 0 {
+			return nil, errors.New("snap failed")
 		}
 		return out.Bytes(), nil
 	} else {
