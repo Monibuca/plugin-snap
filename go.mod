@@ -1,6 +1,6 @@
-module github.com/Monibuca/plugin-snap
+module github.com/Monibuca/plugin-snap/v3
 
-go 1.18
+go 1.16
 
 require (
 	github.com/Monibuca/engine/v3 v3.5.1
