@@ -2,135 +2,62 @@ package snap
 
 import (
 	"bytes"
-	"errors"
 	"net/http"
 	"os/exec"
-	"strconv"
-	"time"
+	"strings"
 
-	. "github.com/Monibuca/engine/v3"
-	. "github.com/Monibuca/utils/v3"
-
-	"github.com/Monibuca/utils/v3/codec"
+	. "m7s.live/engine/v4"
+	"m7s.live/engine/v4/config"
 )
 
-type SnapProcess = func(*Stream) ([]byte, error)
-
-var snapKind = map[string]SnapProcess{
-	"iframe": snapIFrame,
-	"rtmp":   snapStream,
-	"rtsp":   snapStream,
-	"flv":    snapStream,
-	"hls":    snapStream,
+type SnapSubscriber struct {
+	Subscriber
+}
+type SnapConfig struct {
+	config.Subscribe
+	FFmpeg string // ffmpeg的路径
+	Path   string //存储路径
+	Filter string //过滤器
+	cmd    string
 }
 
-func init() {
+func (snap *SnapConfig) OnEvent(event any) {
 
-	pc := PluginConfig{
-		Name:   "Snap",
-		Config: &struct{}{},
-		// Version: "v3.0.0",
-	}
-	pc.Install(nil)
-	http.HandleFunc("/api/snap", snap)
 }
 
-func snap(w http.ResponseWriter, r *http.Request) {
-	CORS(w, r)
-	timeout := r.URL.Query().Get("timeout")
-	t, err := strconv.Atoi(timeout)
-	if timeout == "" || t == 0 || err != nil {
-		t = 2500
-	}
-	kind := r.URL.Query().Get("kind")
-	if kind == "" {
-		kind = "iframe"
-	}
-	snapProc, ok := snapKind[kind]
-	if !ok {
-		w.WriteHeader(http.StatusNotAcceptable)
-		w.Write([]byte("kind param is wrong"))
-		return
-	}
+var conf = &SnapConfig{
+	FFmpeg: "ffmpeg",
+}
+var plugin = InstallPlugin(conf)
 
-	if streamPath := r.URL.Query().Get("stream"); streamPath != "" {
-		s := FindStream(streamPath)
-		if s == nil {
-			w.WriteHeader(http.StatusNotAcceptable)
-			w.Write([]byte("stream not found"))
-			return
-		}
-		data, err := snapWithTimeOut(s, snapProc, t)
-		if err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		w.Header().Add("Content-Type", "image/jpeg")
-		w.Write(data)
-	} else {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("stream param is empty"))
+func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	streamPath := strings.TrimPrefix(r.RequestURI, "/snap/")
+	w.Header().Set("Content-Type", "image/jpeg")
+	sub := &SnapSubscriber{}
+	sub.ID = r.RemoteAddr
+	sub.SetParentCtx(r.Context())
+	sub.SetIO(w)
+	if err := plugin.SubscribeBlock(streamPath, sub); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 }
 
-func snapWithTimeOut(s *Stream, snap SnapProcess, timeout int) ([]byte, error) {
-
-	after := time.After(time.Duration(timeout) * time.Millisecond)
-	var data []byte
-	var err error
-L:
-	for {
-		select {
-		case <-after:
-			if err == nil {
-				err = errors.New("timeout")
-			}
-			break L
-		default:
-			data, err = snap(s)
-			if err == nil {
-				break L
-			}
+func (s *SnapSubscriber) OnEvent(event any) {
+	switch v := event.(type) {
+	case *VideoFrame:
+		if v.IFrame {
+			var buff bytes.Buffer
+			c := VideoDeConf(s.Video.Track.DecoderConfiguration).GetAnnexB()
+			c.WriteTo(&buff)
+			c = v.GetAnnexB()
+			c.WriteTo(&buff)
+			cmd := exec.Command(conf.FFmpeg, "-i", "pipe:0", "-vframes", "1", "-f", "mjpeg", "pipe:1")
+			cmd.Stdin = &buff
+			cmd.Stdout = s
+			cmd.Run()
+			s.Stop()
 		}
+	default:
+		s.Subscriber.OnEvent(event)
 	}
-	return data, err
-}
-
-func snapIFrame(s *Stream) ([]byte, error) {
-	if v := s.WaitVideoTrack(); v != nil {
-		buf := bytes.NewBuffer(nil)
-
-		header := *v.ExtraData
-		for _, h := range header.NALUs {
-			buf.Write(codec.NALU_Delimiter2)
-			buf.Write(h)
-		}
-
-		idr := v.IDRing.Value.(*AVItem).Value.(*VideoPack)
-		for _, h := range idr.NALUs {
-			buf.Write(codec.NALU_Delimiter2)
-			buf.Write(h)
-		}
-
-		cmd := exec.Command("ffmpeg", "-i", "pipe:0", "-vframes", "1", "-f", "mjpeg", "pipe:1")
-		cmd.Stdin = bytes.NewReader(buf.Bytes())
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		err := cmd.Run()
-		if err != nil {
-			return nil, err
-		}
-		if len(out.Bytes()) == 0 {
-			return nil, errors.New("snap failed")
-		}
-		return out.Bytes(), nil
-	} else {
-		return nil, errors.New("stream no track")
-	}
-}
-
-func snapStream(s *Stream) ([]byte, error) {
-
-	return nil, errors.New("not implement yet")
 }

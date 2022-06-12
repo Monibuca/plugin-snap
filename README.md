@@ -1,16 +1,29 @@
-# plugin-snap
-I 帧截图插件，通过命令行调用 ffmpeg 截取 I 帧视频
+# 截图插件
 
-# 安装
-1. 修改 Monibuca 项目中的 main.go ，在 import 里添加 `_ "github.com/Monibuca/plugin-snap/v3"`
-2. 修改 config.toml 添加 `[Snap]`
-3. 运行 `go mod tidy`
-4. 需要 ffmpeg 可执行文件在 **PATH** 中，不依赖 cgo
+可通过http请求获取到指定流的I帧截图（jpg格式）。
 
-# 接口
-`/api/snap?stream=视频流&timeout=超时毫秒`  
+## 插件地址
 
-视频流即流列表中的StreamPath，timeout默认超时2500毫秒，可以不传
+https://github.com/Monibuca/plugin-snap
 
-# 说明
-本插件有一定概率截图失败，一般情况下 I 帧 2~4秒 间隔出现一次，所以本插件不适合实时截图，本插件的适用范围为，定时截图或者播放视频前的预览图。 
+## 插件引入
+```go
+import (
+    _ "m7s.live/plugin/snap/v4"
+)
+```
+## 默认配置
+
+```yaml
+snap:
+    ffmpeg: "ffmpeg"
+```
+如果ffmpeg无法全局访问，则可修改ffmpeg路径为本地的绝对路径
+## API
+
+### `/snap/[streamPath]`
+
+获取一帧截图，返回最新的I帧的jpg图片。
+例如m7s（localhost)中有流live/test,
+可以通过http://localhost:8080/snap/live/test 获取到该流的最新截图
+
