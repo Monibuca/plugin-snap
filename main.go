@@ -37,7 +37,7 @@ func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sub.ID = r.RemoteAddr
 	sub.SetParentCtx(r.Context())
 	sub.SetIO(w)
-	if err := plugin.SubscribeBlock(streamPath, sub); err != nil {
+	if err := plugin.SubscribeBlock(streamPath, sub, SUBTYPE_RAW); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 }
