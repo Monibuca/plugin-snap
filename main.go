@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	. "m7s.live/engine/v4"
+	"m7s.live/engine/v4/codec"
 	"m7s.live/engine/v4/config"
 )
 
@@ -44,19 +45,31 @@ func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *SnapSubscriber) OnEvent(event any) {
 	switch v := event.(type) {
-	case *VideoFrame:
-		if v.IFrame {
-			var buff bytes.Buffer
-			c := VideoDeConf(s.Video.Track.DecoderConfiguration).GetAnnexB()
-			c.WriteTo(&buff)
-			c = v.GetAnnexB()
-			c.WriteTo(&buff)
-			cmd := exec.Command(conf.FFmpeg, "-i", "pipe:0", "-vframes", "1", "-f", "mjpeg", "pipe:1")
-			cmd.Stdin = &buff
-			cmd.Stdout = s
-			cmd.Run()
-			s.Stop()
+	case VideoDeConf:
+		var buff bytes.Buffer
+		var errOut bytes.Buffer
+		for _, nalu := range v.Raw {
+			buff.Write(codec.NALU_Delimiter2)
+			buff.Write(nalu)
 		}
+		buff.Write(codec.NALU_Delimiter2)
+		for i, nalu := range s.Video.Track.IDRing.Value.Raw {
+			if i > 0 {
+				buff.Write(codec.NALU_Delimiter1)
+			}
+			for _, slice := range nalu {
+				buff.Write(slice)
+			}
+		}
+		cmd := exec.Command(conf.FFmpeg, "-i", "pipe:0", "-vframes", "1", "-f", "mjpeg", "pipe:1")
+		cmd.Stdin = &buff
+		cmd.Stderr = &errOut
+		cmd.Stdout = s
+		cmd.Run()
+		if len(errOut.Bytes()) > 0 {
+			s.Info(errOut.String())
+		}
+		s.Stop()
 	default:
 		s.Subscriber.OnEvent(event)
 	}
