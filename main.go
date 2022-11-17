@@ -19,7 +19,6 @@ type SnapConfig struct {
 	FFmpeg string // ffmpeg的路径
 	Path   string //存储路径
 	Filter string //过滤器
-	cmd    string
 }
 
 func (snap *SnapConfig) OnEvent(event any) {
@@ -27,6 +26,13 @@ func (snap *SnapConfig) OnEvent(event any) {
 }
 
 var conf = &SnapConfig{
+	Subscribe: config.Subscribe{
+		SubAudio:    false,
+		SubVideo:    true,
+		LiveMode:    true,
+		IFrameOnly:  false,
+		WaitTimeout: 10,
+	},
 	FFmpeg: "ffmpeg",
 }
 var plugin = InstallPlugin(conf)
