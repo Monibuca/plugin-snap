@@ -2,6 +2,7 @@ package snap
 
 import (
 	"bytes"
+	_ "embed"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -11,10 +12,14 @@ import (
 	"m7s.live/engine/v4/config"
 )
 
+//go:embed default.yaml
+var defaultYaml DefaultYaml
+
 type SnapSubscriber struct {
 	Subscriber
 }
 type SnapConfig struct {
+	DefaultYaml
 	config.Subscribe
 	FFmpeg string // ffmpeg的路径
 	Path   string //存储路径
@@ -26,15 +31,9 @@ func (snap *SnapConfig) OnEvent(event any) {
 }
 
 var conf = &SnapConfig{
-	Subscribe: config.Subscribe{
-		SubAudio:    false,
-		SubVideo:    true,
-		LiveMode:    true,
-		IFrameOnly:  false,
-		WaitTimeout: 10,
-	},
-	FFmpeg: "ffmpeg",
+	DefaultYaml: defaultYaml,
 }
+
 var plugin = InstallPlugin(conf)
 
 func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
