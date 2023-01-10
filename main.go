@@ -40,6 +40,7 @@ func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	streamPath := strings.TrimPrefix(r.RequestURI, "/snap/")
 	w.Header().Set("Content-Type", "image/jpeg")
 	sub := &SnapSubscriber{}
+	sub.IsInternal = true
 	sub.ID = r.RemoteAddr
 	sub.SetParentCtx(r.Context())
 	sub.SetIO(w)
