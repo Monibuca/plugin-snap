@@ -1,3 +1,4 @@
 subscribe:
   subaudio: false
+  iframeonly: true
 ffmpeg: ffmpeg

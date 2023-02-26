@@ -1,15 +1,14 @@
 package snap
 
 import (
-	"bytes"
 	_ "embed"
 	"net/http"
 	"os/exec"
 	"strings"
 
 	. "m7s.live/engine/v4"
-	"m7s.live/engine/v4/common"
 	"m7s.live/engine/v4/config"
+	"m7s.live/engine/v4/util"
 )
 
 //go:embed default.yaml
@@ -51,21 +50,18 @@ func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *SnapSubscriber) OnEvent(event any) {
 	switch v := event.(type) {
-	case common.ParamaterSets:
-		var buff bytes.Buffer
-		var errOut bytes.Buffer
-		v.WriteAnnexBTo(&buff)
-		VideoFrame{AVFrame: &s.Video.IDRing.Value}.WriteAnnexBTo(&buff)
-
-		cmd := exec.Command(conf.FFmpeg, "-i", "pipe:0", "-vframes", "1", "-f", "mjpeg", "pipe:1")
-		cmd.Stdin = &buff
+	case VideoFrame:
+		s.Stop()
+		var errOut util.Buffer
+		firstFrame := v.GetAnnexB()
+		cmd := exec.Command(conf.FFmpeg, "-hide_banner", "-i", "pipe:0", "-vframes", "1", "-f", "mjpeg", "pipe:1")
+		cmd.Stdin = &firstFrame
 		cmd.Stderr = &errOut
 		cmd.Stdout = s
 		cmd.Run()
-		if len(errOut.Bytes()) > 0 {
-			s.Info(errOut.String())
+		if errOut.CanRead() {
+			s.Info(string(errOut))
 		}
-		s.Stop()
 	default:
 		s.Subscriber.OnEvent(event)
 	}
