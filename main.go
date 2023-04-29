@@ -20,6 +20,7 @@ type SnapSubscriber struct {
 type SnapConfig struct {
 	DefaultYaml
 	config.Subscribe
+	config.HTTP
 	FFmpeg string // ffmpeg的路径
 	Path   string //存储路径
 	Filter string //过滤器
@@ -39,7 +40,6 @@ func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	streamPath := strings.TrimPrefix(r.RequestURI, "/snap/")
 	w.Header().Set("Content-Type", "image/jpeg")
 	sub := &SnapSubscriber{}
-	sub.IsInternal = true
 	sub.ID = r.RemoteAddr
 	sub.SetParentCtx(r.Context())
 	sub.SetIO(w)
