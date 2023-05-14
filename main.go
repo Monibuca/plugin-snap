@@ -37,7 +37,10 @@ var conf = &SnapConfig{
 var plugin = InstallPlugin(conf)
 
 func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	streamPath := strings.TrimPrefix(r.RequestURI, "/snap/")
+	streamPath := strings.TrimPrefix(r.URL.Path, "/")
+	if r.URL.RawQuery != "" {
+		streamPath += "?" + r.URL.RawQuery
+	}
 	w.Header().Set("Content-Type", "image/jpeg")
 	sub := &SnapSubscriber{}
 	sub.ID = r.RemoteAddr
