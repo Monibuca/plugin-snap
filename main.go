@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"go.uber.org/zap"
 	. "m7s.live/engine/v4"
 	"m7s.live/engine/v4/config"
 	"m7s.live/engine/v4/util"
@@ -54,7 +55,7 @@ func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *SnapSubscriber) OnEvent(event any) {
 	switch v := event.(type) {
 	case VideoFrame:
-		s.Stop()
+		s.Stop(zap.String("reason", "snap"))
 		var errOut util.Buffer
 		firstFrame := v.GetAnnexB()
 		cmd := exec.Command(conf.FFmpeg, "-hide_banner", "-i", "pipe:0", "-vframes", "1", "-f", "mjpeg", "pipe:1")
