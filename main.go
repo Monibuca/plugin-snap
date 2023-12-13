@@ -19,23 +19,19 @@ type SnapSubscriber struct {
 	Subscriber
 }
 type SnapConfig struct {
-	DefaultYaml
 	config.Subscribe
 	config.HTTP
-	FFmpeg string // ffmpeg的路径
-	Path   string //存储路径
-	Filter string //过滤器
+	FFmpeg string `desc:"ffmpeg的路径"` // ffmpeg的路径
+	Path   string `desc:"存储路径"`      //存储路径
 }
 
 func (snap *SnapConfig) OnEvent(event any) {
 
 }
 
-var conf = &SnapConfig{
-	DefaultYaml: defaultYaml,
-}
+var conf = &SnapConfig{}
 
-var plugin = InstallPlugin(conf)
+var plugin = InstallPlugin(conf, defaultYaml)
 
 func (snap *SnapConfig) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	streamPath := strings.TrimPrefix(r.URL.Path, "/")
